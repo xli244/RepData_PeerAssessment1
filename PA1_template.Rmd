@@ -1,25 +1,86 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "PACourse5.1"
+author: "X.Li"
+date: "12/21/2020"
+output: html_document
 ---
 
+```{r setup,include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,warning=FALSE,message=FALSE,fig.path='Figures/')
+library(tidyverse)
+library(knitr)
+
+```
 
 ## Loading and preprocessing the data
-
-
+- Read the data file into a data table
+- Format the dates as data type "Date" 
+- Change the data class of "interval" to factors
+```{r load & transform data,include=FALSE}
+Actdata<-read.csv("activity.csv")
+Actdata$date<-as.Date(Actdata$date,"%Y-%m-%d")
+Actdata$interval<-as.factor(Actdata$interval)
+```
 
 ## What is mean total number of steps taken per day?
-
-
+- Remove the "NA" values
+- Compute the total numbers of steps taken by day 
+- Plot the histrogram
+- Compute mean and median total number of steps taken per day
+- The mean is 10766.19, and median is 10765.
+```{r Task_1, include=TRUE}
+Subdata1<-Actdata[is.na(Actdata$steps)==FALSE,]
+Subdata1<-Subdata1 %>% group_by (date) %>% summarise(Total_Steps=sum(steps))
+hist(Subdata1$Total_Steps,xlab="Total Steps Per Day", main="Total Number of Steps Taken Each Day")
+mean(Subdata1$Total_Steps)
+median(Subdata1$Total_Steps)
+```
 
 ## What is the average daily activity pattern?
-
-
+- Remove "NA" values
+- Compute the number of steps for each interval averaged across all days
+- Plot the time series 
+- I found the interval labeled 835 contains the maximum number of steps, which is 206 steps. 
+```{r Task_2, include=TRUE}
+Subdata2<-Actdata[is.na(Actdata$steps)==FALSE,]
+Subdata2<-aggregate(Subdata2$steps,list(Subdata2$interval),mean)
+colnames(Subdata2)<-c("interval","avg_steps")
+Subdata2$avg_steps<-as.integer(Subdata2$avg_steps)
+ts.plot(Subdata2$avg_steps,ylab="Avg number of Steps Taken",main="Average Daily Activity Pattern")
+Subdata2[which.max(Subdata2$avg_steps),]
+```
 
 ## Imputing missing values
-
-
+- The total number of missing values in the dataset is 2304.
+- The mean for each interval computed previously is used to fill the "NA" in the original dataset
+- Plot the histrogram
+- Compute mean and median total number of steps taken per day
+- The mean is 10749.77, and median is 10641. Using the mean for each interval decreases both the mean and the median, though the effect is stronger on median than on the mean. 
+```{r Task_3, include=TRUE}
+nrow(Actdata[is.na(Actdata$steps)==TRUE,])
+for (i in 1:dim(Actdata)[1]){
+        if (is.na(Actdata[i,1])==TRUE){
+                Actdata[i,1]<-Subdata2[which(Subdata2[,1]==Actdata[i,3]),2]
+        }
+}
+Subdata3<-Actdata %>% 
+        group_by (date) %>% 
+        summarise(Total_Steps=sum(steps))
+hist(Subdata3$Total_Steps,xlab="Total Steps Per Day", main="Total Number of Steps Taken Each Day")
+mean(Subdata3$Total_Steps)
+median(Subdata3$Total_Steps)
+```
 
 ## Are there differences in activity patterns between weekdays and weekends?
+- Create an indicator to indendity weekdays and weekends
+- Compute the average number of steps for each interval, conditioned on weekends/weekdays
+- Use ggplot the compare the activity patterns between weekdays and weekends. The activities on weekends are distributed more evenly than weekdays. The experiment subject tends to take more steps in a more frequent/consistent manner.
+```{r Task_4, include=TRUE}
+Subdata4<-mutate(Actdata,weekday=weekdays(Actdata$date))
+Subdata4<-mutate(Subdata4,ind=ifelse(Subdata4$weekday %in% c("Saturday","Sunday"),"weekend","weekday"))
+Subdata4<-Subdata4%>%group_by(ind,interval) %>% summarise(avg_steps=mean(steps))
+Subdata4$interval<-as.numeric(Subdata4$interval)
+ggplot(Subdata4,aes(interval,avg_steps))+geom_line()+facet_wrap(~ind,nrow=2,ncol=1)+ylab("Number of steps")
+```
+
+
